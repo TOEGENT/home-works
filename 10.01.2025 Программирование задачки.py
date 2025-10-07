@@ -231,33 +231,34 @@ def converter(roman_tests):
 print(converter([i for i in range(1,1000)]))
 print(converter(converter([i for i in range(1,1000)])))
 """
+"""
 words = ["лололошка", "бананы"]
-#deadman
 from random import choice
-def play_deadman(tryes=8):
+
+def play_deadman(tryes=6):  # уменьшил попытки до 6 — как в классике
     word = words[choice(range(len(words)))]
-    guess_total = ["_" for i in range(len(word))]
+    guess_total = ["_" for _ in range(len(word))]
     print("Добро пожаловать в висельницу! Ваша задача - угадать слово быстрее, чем человек успеет повесится. Удачи!")
 
-    for i in range(tryes*len(word)):
+    for _ in range(tryes):  
         print("".join(guess_total))
 
-        inp1 = input("Введите номер и предполагаемую букву (по типу: 1-а) ").split("-")
-        guess_index = int(inp1[0])-1
-        guess_symbol = inp1[1]
-        if guess_index>=len(word):
-            print("Нет такого номера!")
-            continue
-        if word[guess_index]==guess_symbol:
-            guess_total[guess_index]=guess_symbol
+        guess_symbol = input("Введите букву: ").lower()
+
+        if guess_symbol in word:
+            for i, letter in enumerate(word):
+                if letter == guess_symbol:
+                    guess_total[i] = guess_symbol
             print("Угадали!")
         else:
-            print("Неугадали!")
-        if "".join(guess_total)==word:
+            print("Не угадали!")
+
+        if "".join(guess_total) == word:
             print("Вы угадали слово! Поздравляю!")
             return 1
-    else:
-        print(f"Вы так долго угадывали слово, что человек уже успел повесится! Заданное слово было {word}")
-        return 0
-play_deadman()
 
+    print(f"Вы так долго угадывали слово, что человек уже успел повесится! Заданное слово было {word}")
+    return 0
+
+play_deadman()
+"""
