@@ -112,7 +112,7 @@ rock_paper_scissors(3)
 """
 
 # 5 - bank
-"""
+
 from random import randint
 from datetime import datetime
 class Card:
@@ -237,4 +237,4 @@ class Bank_Account:
 
 account=Bank_Account()
 account.GUI()
-"""
+
