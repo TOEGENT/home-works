@@ -11,17 +11,19 @@ def safe_input(string="", expect_type=str, filter=lambda x: x):
             try:
                 temp = expect_type(input(
                     string))  # Если expect_type — скомпилированное регулярное выражение, то проверяем ввод через полное совпадение (re.fullmatch)
-                if filter(temp):  # если подходит по условию
+
+                if filter(temp) or temp==None:  # если подходит по условию
                     return temp
                 else:
                     print("Неверный ввод!")
             except(ValueError, TypeError):
-                print("Неверный ввод!")
+                print("Неверный ввод!!")
         else:  # если регулярка, то смотрим на соответствие
+
             user_input = input(string)
             if re.fullmatch(expect_type, user_input):
                 return user_input
-            print("Неверный ввод!")
+            print("Неверный ввод!!")
 
 
 def closest_match(target, choices):
@@ -41,9 +43,12 @@ def add_by_note(note:str):
     note_splitted = note.split(" ")
     name = note_splitted[0]
     amount=Decimal(note_splitted[1])
-    expiration_date=datetime.strptime(note_splitted[2], "%Y-%m-%d")
+    if len(note_splitted)>2:
+        expiration_date=datetime.strptime(note_splitted[2], "%Y-%m-%d")
 
-    return add({name:[{"amount":amount,"expiration_date":expiration_date}]})
+        return add({name:[{"amount":amount,"expiration_date":expiration_date}]})
+    else:
+        return add({name: [{"amount": amount, "expiration_date": None}]})
 
 def find(name:str) -> list:
     matches=[]
@@ -64,5 +69,5 @@ while 1:
         choice2 = safe_input("Напишите название предмета, его количество и срок годности (по желанию) по формату: ПРОДУКТ КОЛИЧЕСТВО СРОК\n(срок годности по формату ГОД-МЕСЯЦ-ДЕНЬ) ",add_by_note)
         print("Предмет успешно положен в холодильник!")
     if choice=="найти":
-        choice3 = safe_input("Напишите название предмета по формату: ПРОДУКТ ",find)
-        print(find(choice3))
+        choice3 = safe_input("Напишите название предмета по формату: ПРОДУКТ ")
+        print(f"В холодильнике есть: {", ".join(find(choice3))}")
