@@ -4,19 +4,19 @@ from datetime import datetime
 from decimal import Decimal
 
 
-
 def safe_input(string="", expect_type=str, filter=lambda x: x):
     while True:
         if not (isinstance(expect_type, re.Pattern)):  # если не регулярное выражение
             try:
-                temp = expect_type(input(
-                    string))  # Если expect_type — скомпилированное регулярное выражение, то проверяем ввод через полное совпадение (re.fullmatch)
+                temp = expect_type(
+                    input(string)
+                )  # Если expect_type — скомпилированное регулярное выражение, то проверяем ввод через полное совпадение (re.fullmatch)
 
-                if filter(temp) or temp==None:  # если подходит по условию
+                if filter(temp) or temp == None:  # если подходит по условию
                     return temp
                 else:
                     print("Неверный ввод!")
-            except(ValueError, TypeError):
+            except (ValueError, TypeError):
                 print("Неверный ввод!!")
         else:  # если регулярка, то смотрим на соответствие
 
@@ -28,34 +28,41 @@ def safe_input(string="", expect_type=str, filter=lambda x: x):
 
 def closest_match(target, choices):
     return difflib.get_close_matches(target, choices, n=1, cutoff=0)[
-        0]  # cutoff=0 гарантирует, что всегда вернётся хотя бы один "наиболее близкий" вариант,
+        0
+    ]  # cutoff=0 гарантирует, что всегда вернётся хотя бы один "наиболее близкий" вариант,
 
 
-goods={}
-def add(good:dict):
+goods = {}
+
+
+def add(good: dict):
     good_key = list(good.keys())[0]
     good_value = list(good.values())[0][0]
     if good_key in goods.keys():
         goods[good_key].append(good_value)
     else:
         goods.update(good)
-def add_by_note(note:str):
+
+
+def add_by_note(note: str):
     note_splitted = note.split(" ")
     name = note_splitted[0]
-    amount=Decimal(note_splitted[1])
-    if len(note_splitted)>2:
-        expiration_date=datetime.strptime(note_splitted[2], "%Y-%m-%d")
+    amount = Decimal(note_splitted[1])
+    if len(note_splitted) > 2:
+        expiration_date = datetime.strptime(note_splitted[2], "%Y-%m-%d")
 
-        return add({name:[{"amount":amount,"expiration_date":expiration_date}]})
+        return add({name: [{"amount": amount, "expiration_date": expiration_date}]})
     else:
         return add({name: [{"amount": amount, "expiration_date": None}]})
 
-def find(name:str) -> list:
-    matches=[]
+
+def find(name: str) -> list:
+    matches = []
     for key in list(goods.keys()):
         if name.lower() in key.lower():
             matches.append(key)
     return matches
+
 
 def amount(name):
     return sum(len(goods[match]) for match in find(name))
@@ -64,10 +71,16 @@ def amount(name):
 print("Вы у холодильника")
 while 1:
     print("Выберете вариант действий")
-    choice=closest_match(safe_input("Положить в холодильник предмет / Найти в холодильнике "),["положить","найти"])
-    if choice=="положить":
-        choice2 = safe_input("Напишите название предмета, его количество и срок годности (по желанию) по формату: ПРОДУКТ КОЛИЧЕСТВО СРОК\n(срок годности по формату ГОД-МЕСЯЦ-ДЕНЬ) ",add_by_note)
+    choice = closest_match(
+        safe_input("Положить в холодильник предмет / Найти в холодильнике "),
+        ["положить", "найти"],
+    )
+    if choice == "положить":
+        choice2 = safe_input(
+            "Напишите название предмета, его количество и срок годности (по желанию) по формату: ПРОДУКТ КОЛИЧЕСТВО СРОК\n(срок годности по формату ГОД-МЕСЯЦ-ДЕНЬ) ",
+            add_by_note,
+        )
         print("Предмет успешно положен в холодильник!")
-    if choice=="найти":
+    if choice == "найти":
         choice3 = safe_input("Напишите название предмета по формату: ПРОДУКТ ")
         print(f"В холодильнике есть: {", ".join(find(choice3))}")

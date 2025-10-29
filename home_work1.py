@@ -1,4 +1,4 @@
-#1
+# 1
 """
 number = int(input('Введите ваше число: '))
 
@@ -29,7 +29,7 @@ shuffle(result)
 print("".join(result))
 """
 
-#3
+# 3
 """
 text = input("Введите текст").lower()
 unic = set(text)
@@ -42,7 +42,7 @@ for i,key in enumerate(counts,1):
         break
 """
 
-#4
+# 4
 """
 N = int(input("Введите супремум"))
 l_raw = [i for i in range(2, N)]

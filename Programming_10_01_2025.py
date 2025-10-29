@@ -2,29 +2,31 @@
 
 import random
 
-def cezar(text,sdvig,decode=False):
+
+def cezar(text, sdvig, decode=False):
     dictt = {}
-    r_dictt={}
+    r_dictt = {}
     symbols = sorted(list(set(text)))
     for symbol_id in range(len(symbols)):
-        if -len(symbols)<=symbol_id+sdvig<len(symbols):
-            symbol_id_plus_sdvig=symbol_id+sdvig
-        elif symbol_id+sdvig>=len(symbols):
-            symbol_id_plus_sdvig=(symbol_id+sdvig)%(len(symbols))
+        if -len(symbols) <= symbol_id + sdvig < len(symbols):
+            symbol_id_plus_sdvig = symbol_id + sdvig
+        elif symbol_id + sdvig >= len(symbols):
+            symbol_id_plus_sdvig = (symbol_id + sdvig) % (len(symbols))
         else:
-            symbol_id_plus_sdvig=-(symbol_id+sdvig)%(len(symbols))
+            symbol_id_plus_sdvig = -(symbol_id + sdvig) % (len(symbols))
 
-        dictt[symbols[symbol_id]]=symbols[symbol_id_plus_sdvig]
-        r_dictt[symbols[symbol_id_plus_sdvig]]= symbols[symbol_id]
+        dictt[symbols[symbol_id]] = symbols[symbol_id_plus_sdvig]
+        r_dictt[symbols[symbol_id_plus_sdvig]] = symbols[symbol_id]
     new_text = ""
     if not decode:
         for i in text:
-            new_text+=dictt[i]
+            new_text += dictt[i]
         return new_text
     else:
         for i in text:
-            new_text+=r_dictt[i]
+            new_text += r_dictt[i]
         return new_text
+
 
 text = input("Введите текст ")
 while 1:
@@ -35,8 +37,11 @@ while 1:
         pass
 
 
-if input(f"Шифрованный текст: {cezar(text,1)}. Хотите дешифровать текст? (Y\\N) ") in ["y","Y"]:
-    print(cezar(cezar(text,1),1,1))
+if input(f"Шифрованный текст: {cezar(text,1)}. Хотите дешифровать текст? (Y\\N) ") in [
+    "y",
+    "Y",
+]:
+    print(cezar(cezar(text, 1), 1, 1))
 
 
 # 2 stas
@@ -88,7 +93,7 @@ while 1:
         pass
 print_pack_report(inp)
 """
-#4
+# 4
 """
 from random import choice,shuffle
 from string import printable
@@ -156,7 +161,7 @@ MCMLXXXIV
 result = MCMLXXXIV
 """
 
-#5 rimsky cool
+# 5 rimsky cool
 """
 def converter(roman_tests):
     roman_to_int = {
