@@ -1,8 +1,22 @@
-class Book:
+from datetime import datetime
+from abc import ABC,abstractmethod
+
+
+class Printable:
+    @abstractmethod
+    def print_info(self):
+        pass
+
+
+class Book(Printable):
     def __init__(self, title, author, year):
         self.title = title
         self.author = author
-        self.year = year
+        self.year = int(year)
+
+    @property
+    def age(self):
+        return datetime.now().year - self.year
 
     def __str__(self):
         return self.info()
@@ -10,7 +24,7 @@ class Book:
     def __eq__(self, other):
         return isinstance(Book, other) and self.title == other.title
 
-    def info(self):
+    def print_info(self):
         return f"Title: {self.title}, author: {self.author}, year: {self.year}"
 
     @classmethod
@@ -23,4 +37,4 @@ class Book:
 
 
 book1 = Book.book_init("Пушкин;Евгений Онегин;2020")
-print(book1)
+print(book1.age)
