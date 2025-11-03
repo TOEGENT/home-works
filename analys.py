@@ -1,4 +1,6 @@
 import pandas as pd
+from sklearn.compose import ColumnTransformer
+from sklearn.impute import SimpleImputer
 from sklearn.model_selection import train_test_split
 from sklearn.ensemble import RandomForestRegressor,GradientBoostingRegressor
 
@@ -6,6 +8,8 @@ from sklearn.metrics import mean_absolute_error
 from sklearn.metrics import mean_absolute_percentage_error 
 import numpy as np
 import matplotlib
+from sklearn.preprocessing import OneHotEncoder
+
 df=pd.read_csv('cars_train.csv')
 
 def clear_df(df):
@@ -17,26 +21,74 @@ def clear_df(df):
 
    return df
 df = clear_df(df).drop(columns=['ID'])
-print(df.dtypes)
-numeric_df = df.select_dtypes(include='number')
-numeric_df = numeric_df.dropna()
-X = numeric_df.drop('Price', axis=1)
-y = numeric_df['Price']
-total=[]
-"""
-for i in range(10):
-   X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.1, random_state=i)
-   model = GradientBoostingRegressor(random_state=i,max_depth=5,subsample=0.8,learning_rate=0.05,n_estimators=500)
-   model.fit(X_train, y_train)
 
+X =df.drop('Price', axis=1)
+y = df['Price']
+df=df.drop("Price",axis=1)
+numerical = df.select_dtypes(include="number").columns.tolist()
+categorical = df.select_dtypes(include=["object","string"]).columns.tolist()
+
+preprocessor = ColumnTransformer(
+   transformers=[
+      ("num",SimpleImputer(strategy="median"),numerical),
+      ("cat",OneHotEncoder(drop="first",handle_unknown="ignore",sparse_output=False),categorical)
+   ],
+   remainder="drop"
+)
+
+
+"""
+print(df)
+categorical_cols=df.select_dtypes(include=["object","string"]).columns.tolist()
+print("categorial_features",categorical_cols)
+for col in categorical_cols:
+   n_unique=df[col].nunique()
+   print(f"{col}:{n_unique}")
+print(df.Model.sample(10).tolist())
+print(df[["Make","Model"]].value_counts().head(20))
+
+for make in df["Make"].unique():
+   models=df[df["Make"]==make]["Model"].value_counts().head(10)
+   print(f"\n{make}:")
+"""
+
+total=[]
+total2=[]
+
+for i in range(10):
+
+   X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.1, random_state=i)
+   X_train_enc=preprocessor.fit_transform(X_train)
+   X_test_enc = preprocessor.transform(X_test)
+
+   print("Форма обучающей выборки после OHE:", X_train_enc.shape)
+   feature_names = preprocessor.get_feature_names_out()
+   X_train_df = pd.DataFrame(X_train_enc,columns=feature_names)
+   X_test_df=pd.DataFrame(X_test_enc,columns=feature_names)
+   print(X_train_df)
+
+
+   model = GradientBoostingRegressor(random_state=i,max_depth=10,subsample=0.8,learning_rate=0.1,n_estimators=500)
+   model.fit(X_train_enc, y_train)
+   y_pred=model.predict(X_train_enc)
+   MAE = mean_absolute_error(y_train, y_pred)
+   MAPE = mean_absolute_percentage_error(y_train, y_pred)
+
+   print("MAE",MAE)
+   print(f"MAPE: {MAPE}%")
 
    # Предсказание
-   y_pred = model.predict(X_test)
+   y_pred = model.predict(X_test_enc)
    MAE = mean_absolute_error(y_test, y_pred)
    MAPE = mean_absolute_percentage_error(y_test, y_pred)
+   print("MAE",MAE)
+   print(f"MAPE: {MAPE}%")
+
    total.append(MAPE)
+   total2.append(MAE)
 print(sum(total)/len(total),sorted(total)[len(total)//2])
-"""
+print(sum(total2)/len(total2),sorted(total2)[len(total2)//2])
+
 """
 df_submit.to_csv('submit.csv', index = False)
 df_submit.head(3)
