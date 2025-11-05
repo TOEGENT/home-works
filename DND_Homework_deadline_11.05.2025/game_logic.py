@@ -1,7 +1,7 @@
 from random import choices
 from textwrap import dedent
 
-from DND.goofy_user_protection import safe_input, closest_match
+from goofy_user_protection import safe_input, closest_match
 from abc import abstractmethod
 from usefull_things import show_stats
 class Item:
