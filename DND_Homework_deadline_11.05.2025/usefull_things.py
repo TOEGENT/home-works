@@ -22,9 +22,10 @@ def stats(type_class):
             - Выносливость — даёт силу бежать часами, карабкаться по скалам и нести тяжёлый колчан без устали.
             """
 
+
 def show_stats(hero, enemy):
     hero_stats = hero.strip().splitlines()
     enemy_stats = enemy.strip().splitlines()
 
-    for h, e in zip_longest(hero_stats, enemy_stats, fillvalue=''):
+    for h, e in zip_longest(hero_stats, enemy_stats, fillvalue=""):
         print(f"{h:<50} {e}")

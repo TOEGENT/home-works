@@ -25,5 +25,7 @@ def safe_input(string="", expect_type=str, filter=lambda x: x):
 
 
 def closest_match(target, choices):
-    matches= difflib.get_close_matches(target, choices, n=1, cutoff=0.51)  # cutoff=0 гарантирует, что всегда вернётся хотя бы один "наиболее близкий" вариант,
+    matches = difflib.get_close_matches(
+        target, choices, n=1, cutoff=0.51
+    )  # cutoff=0 гарантирует, что всегда вернётся хотя бы один "наиболее близкий" вариант,
     return matches[0] if matches else None
