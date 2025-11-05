@@ -272,15 +272,15 @@ class World:
             return situation(
                 player=self.player,
                 mobs=self.combat_mobs,
-                world=self,**kwargs
+                world=self,
+                **kwargs
             )
 
 class Situation:
-    def __init__(self,player:Mob,mobs:list,items:list,world:World):
+    def __init__(self,player:Mob,mobs:list,world:World):
         self.player=player
         self.mobs=mobs
         self.world=world
-        self.items=items
         self.commands=["/инвентарь","/осмотреться","/атаковать","/использовать"]
 
     @abstractmethod
@@ -289,7 +289,8 @@ class Situation:
 
 class Exploration(Situation):
     def __init__(self,player:Mob,mobs:list,events:list,items:list,world):
-        super().__init__(player=player,mobs=mobs,world=world,items=items)
+        super().__init__(player=player,mobs=mobs,world=world)
+        self.items=items
         self.events=events
         self.commands = ["/инвентарь", "/осмотреться", "/атаковать", "/использовать","/взять"]
     def process_input(self):
@@ -327,8 +328,7 @@ class Exploration(Situation):
             print(self.player.stats())
             return self.process_input()
         if player_input=="/атаковать" and self.subject!=None:
-
-            combat_situation=self.world.generate_situation(Combat,subject=self.subject)
+            combat_situation=self.world.generate_situation(Combat,enemy=self.subject)
             return combat_situation
 
         if player_input=="/взять" and self.subject:
@@ -354,8 +354,8 @@ class Exploration(Situation):
 
 
 class Combat(Situation):
-    def __init__(self,player:Mob,mobs:list,items:list,enemy,world):
-        super().__init__(player=player,mobs=mobs,world=world,items=items)
+    def __init__(self,player:Mob,mobs:list,enemy,world):
+        super().__init__(player=player,mobs=mobs,world=world)
         self.commands = ["/инвентарь", "/атаковать","/бежать", "/использовать","/осмотреть"]
         self.enemy=enemy
         self.is_subject_alive=True
