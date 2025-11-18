@@ -1,188 +1,129 @@
-import pandas as pd
-from sklearn.compose import ColumnTransformer
-from sklearn.impute import SimpleImputer
-from sklearn.model_selection import train_test_split
-from sklearn.ensemble import RandomForestRegressor, GradientBoostingRegressor
-from sklearn.preprocessing import RobustScaler
-from sklearn.metrics import mean_absolute_error
-from sklearn.metrics import mean_absolute_percentage_error
+# pip install catboost==1.1.1 scikit-learn pandas numpy
 import numpy as np
-import matplotlib
-from sklearn.pipeline import Pipeline
-from sklearn.preprocessing import OneHotEncoder
-import matplotlib.pyplot as plt
-import seaborn as sns
+import pandas as pd
+from catboost import CatBoostRegressor, Pool
+from sklearn.model_selection import train_test_split, KFold
+from sklearn.metrics import mean_absolute_error, mean_absolute_percentage_error
 
-df = pd.read_csv("cars_train.csv")
-
-
-plt.figure(figsize=(10, 5))
-sns.histplot(df["Distance"], bins=50, kde=True)
-plt.title("Распределение пробега")
-plt.xlabel("Пробег в км")
-plt.ylabel("Количество автомобилей")
-# plt.show()
-
-plt.figure(figsize=(8, 4))
-sns.boxplot(x=df["Distance"])
-plt.title("Boxplot пробега")
-plt.xlabel("Пробег в км")
-# plt.show()
-
-
-def clear_df_train(df):
-    df["Engine"] = df["Engine"].astype(str).str.extract(r"(\d+\.?\d*)")[0].astype(float)
-    df["Distance"] = (
-        df["Distance"].astype(str).str.extract(r"(\d+\.?\d*)")[0].astype(float)
-    )
-    df["Wheel"] = df["Wheel"].map({"Left wheel": 0, "Right-hand drive": 1})
-    df["Transmission"] = (df["Transmission"] == "Manual").astype(int)
-    df["Drive"] = (df["Drive"] == "4x4").astype(int)
-    df = df[(df["Distance"] >= 0) & (df["Distance"] <= 999999)]
-    df = df[(df["Engine"] >= 0.5) & (df["Engine"] <= 10)]
-    df = df[(df["Price"] > 50) & (df["Price"] < 500000)]
+# ---- Загрузка и очистка (модифицированная) ----
+def clear_df(df):
+    # извлечь числа из строк
+    if 'Engine' in df.columns:
+        df['Engine'] = df['Engine'].astype(str).str.extract(r'(\d+\.?\d*)')[0].astype(float)
+    if 'Distance' in df.columns:
+        df['Distance'] = df['Distance'].astype(str).str.extract(r'(\d+\.?\d*)')[0].astype(float)
+    # wheel/Transmission/Drive — аккуратно: возможны разные текстовые значения
+    if 'Wheel' in df.columns:
+        df['Wheel'] = df['Wheel'].astype(str).replace({
+            'Left wheel': 'left',
+            'Right-hand drive': 'right',
+            'Left-hand drive': 'left',
+            'Right wheel': 'right'
+        }).where(lambda x: x != 'nan', other=np.nan)
+    if 'Transmission' in df.columns:
+        df['Transmission'] = df['Transmission'].astype(str)
+    if 'Drive' in df.columns:
+        df['Drive'] = df['Drive'].astype(str)
     return df
 
+# ---- Чтение данных ----
+train = pd.read_csv('cars_train.csv')
+test  = pd.read_csv('cars_test.csv')
 
-def clear_df_test(df):
-    df["Engine"] = df["Engine"].astype(str).str.extract(r"(\d+\.?\d*)")[0].astype(float)
-    df["Distance"] = (
-        df["Distance"].astype(str).str.extract(r"(\d+\.?\d*)")[0].astype(float)
-    )
-    df["Wheel"] = df["Wheel"].map({"Left wheel": 0, "Right-hand drive": 1})
-    df["Transmission"] = (df["Transmission"] == "Manual").astype(int)
-    df["Drive"] = (df["Drive"] == "4x4").astype(int)
+train = clear_df(train)
+test  = clear_df(test)
 
-    return df
+# Сохраняем ID отдельно
+train_id = train.get('ID')
+test_id  = test.get('ID')
 
+# Не дропаем na полностью — пометим и обработаем
+# Список признаков, которые мы хотим использовать (включая категориальные)
+# Берём все колонки, кроме целевой и ID
+exclude = {'ID', 'Price'}
+features = [c for c in train.columns if c not in exclude]
 
-df = clear_df_train(df).drop(columns=["ID"])
+# Обнаружим категориальные признаки автоматически (object / category), но
+# сохраняем числовые, даже если есть пропуски (CatBoost умеет с ними работать)
+cat_features = [c for c in features if train[c].dtype == 'object' or train[c].dtype.name == 'category']
 
-X = df.drop("Price", axis=1)
-y = np.log1p(df["Price"])
-df = df.drop("Price", axis=1)
-numerical = df.select_dtypes(include="number").columns.tolist()
-categorical = df.select_dtypes(include=["object", "string"]).columns.tolist()
+# Приведём категориальные столбцы к типу 'category' (рекомендуется)
+for c in cat_features:
+    train[c] = train[c].astype('category')
+    test[c]  = test[c].astype('category')
 
-preprocessor = ColumnTransformer(
-    transformers=[
-        (
-            "num",
-            Pipeline(
-                [
-                    ("imputer", SimpleImputer(strategy="median")),
-                    ("scaler", RobustScaler()),
-                ]
-            ),
-            numerical,
-        ),
-        (
-            "cat",
-            OneHotEncoder(drop="first", handle_unknown="ignore", sparse_output=False),
-            categorical,
-        ),
-    ],
-    remainder="drop",
+# Заполнение: CatBoost поддерживает NaN, но для стабильности можно заполнить часть чисел медианой
+num_cols = [c for c in features if c not in cat_features]
+for c in num_cols:
+    median = train[c].median()
+    train[c] = train[c].fillna(median)
+    # Если в тесте появится новая колонка с NaN — тоже заполним медианой из train
+    if c in test.columns:
+        test[c]  = test[c].fillna(median)
+
+# Обработка категориальных NaN — оставляем как NaN (CatBoost умеет) или преобразуем в строку 'missing'
+for c in cat_features:
+    train[c] = train[c].cat.add_categories(['__missing__']).fillna('__missing__')
+    if c in test.columns:
+        test[c]  = test[c].cat.add_categories(['__missing__']).fillna('__missing__')
+
+# ---- Целевая трансформация (рекомендуется при сильном скошенном Price) ----
+y = train['Price'].values
+# лог-трансформируем для стабильности обучения, потом инвертируем при оценке
+y_log = np.log1p(y)
+
+X = train[features].copy()
+X_test_final = test[features].copy()
+
+# ---- Разделение на train / val для мониторинга ----
+X_tr, X_val, y_tr, y_val = train_test_split(X, y_log, test_size=0.15, random_state=42)
+
+# ---- Подготовка Pool'ов CatBoost ----
+train_pool = Pool(X_tr, label=y_tr, cat_features=cat_features)
+val_pool   = Pool(X_val, label=y_val, cat_features=cat_features)
+
+# ---- Модель CatBoost (базовый конфиг, можно тюнить) ----
+model = CatBoostRegressor(
+    iterations=3000,
+    learning_rate=0.03,
+    depth=8,
+    loss_function='MAE',           # оптимизируем под MAE
+    eval_metric='MAE',
+    random_seed=42,
+    early_stopping_rounds=100,
+    task_type='CPU',               # или 'GPU' если доступна
+    verbose=200
 )
 
+model.fit(train_pool, eval_set=val_pool, use_best_model=True)
 
-"""
-print(df)
-categorical_cols=df.select_dtypes(include=["object","string"]).columns.tolist()
-print("categorial_features",categorical_cols)
-for col in categorical_cols:
-   n_unique=df[col].nunique()
-   print(f"{col}:{n_unique}")
-print(df.Model.sample(10).tolist())
-print(df[["Make","Model"]].value_counts().head(20))
+# ---- Оценка: предсказание и обратное преобразование ----
+y_val_pred_log = model.predict(val_pool)
+y_val_pred = np.expm1(y_val_pred_log)         # обратный log1p
+y_val_true = np.expm1(y_val)                  # т.к. y_val — в логах
 
-for make in df["Make"].unique():
-   models=df[df["Make"]==make]["Model"].value_counts().head(10)
-   print(f"\n{make}:")
-"""
+mae = mean_absolute_error(y_val_true, y_val_pred)
+mape = mean_absolute_percentage_error(y_val_true, y_val_pred)
+print("Validation MAE:", mae)
+print("Validation MAPE:", mape)
 
-total = []
-total2 = []
+# ---- Предсказание для теста (с учётом возможного несовпадения колонок) ----
+# Убедимся, что тест содержит все признаки в том же порядке
+missing_cols = [c for c in features if c not in X_test_final.columns]
+for c in missing_cols:
+    X_test_final[c] = 0  # или медиана, или '__missing__' для категорий
 
-# ОТБОР ПРИЗНАКОВ
-X_train, X_test, y_train, y_test = train_test_split(
-    X, y, test_size=0.1, random_state=42
-)
-X_train_enc = preprocessor.fit_transform(X_train)
-X_test_enc = preprocessor.transform(X_test)
+X_test_final = X_test_final[features]
+test_pool = Pool(X_test_final, cat_features=cat_features)
+test_pred_log = model.predict(test_pool)
+test_pred = np.expm1(test_pred_log)
 
-feature_names = preprocessor.get_feature_names_out()
+submission = pd.DataFrame({'ID': test_id, 'Predict': test_pred})
+submission.to_csv('submit_catboost.csv', index=False)
 
-model = GradientBoostingRegressor(
-    random_state=42, max_depth=5, subsample=0.5, learning_rate=0.1, n_estimators=100
-)
-model.fit(X_train_enc, y_train)
-
-feat_imp = pd.DataFrame(
-    {"feature": feature_names, "importance": model.feature_importances_}
-).sort_values("importance", ascending=False)
-
-selected_features = feat_imp[feat_imp["importance"] > 0]["feature"].values
-selected_indices = [list(feature_names).index(f) for f in selected_features]
-
-for i in range(1):
-
-    X_train, X_test, y_train, y_test = train_test_split(
-        X, y, test_size=0.1, random_state=42
-    )
-    X_train_enc = preprocessor.transform(X_train)
-    X_test_enc = preprocessor.transform(X_test)
-    feature_names = preprocessor.get_feature_names_out()
-    selected_mask = np.isin(feature_names, selected_features)
-    X_train_final = X_train_enc[:, selected_mask]
-    X_test_final = X_test_enc[:, selected_mask]
-
-    # print("Форма обучающей выборки после OHE:", X_train_final.shape)
-    X_train_df = pd.DataFrame(X_train_final, columns=selected_features)
-    X_test_df = pd.DataFrame(X_test_final, columns=selected_features)
-    # print(X_train_df)
-    y_train_real = np.expm1(y_train)
-    y_test_real = np.expm1(y_test)
-
-    model = GradientBoostingRegressor(
-        random_state=42,
-        max_depth=15,
-        subsample=0.3,
-        learning_rate=0.05,
-        n_estimators=2000,
-    )
-    model.fit(X_train_final, y_train)
-    y_pred_train = np.expm1(model.predict(X_train_final))
-    y_pred_test = np.expm1(model.predict(X_test_final))
-    MAE = mean_absolute_error(y_train_real, y_pred_train)
-    MAPE = mean_absolute_percentage_error(y_train_real, y_pred_train)
-
-    MAE = mean_absolute_error(y_test_real, y_pred_test)
-    MAPE = mean_absolute_percentage_error(y_test_real, y_pred_test)
-    print("MAE", MAE)
-    print(f"MAPE: {MAPE}%")
-
-    total.append(MAPE)
-    total2.append(MAE)
-print(sum(total) / len(total), sorted(total)[len(total) // 2])
-print(sum(total2) / len(total2), sorted(total2)[len(total2) // 2])
-
-df_test = pd.read_csv("cars_test.csv")
-df_test = clear_df_test(df_test)
-df_test = df_test.dropna().drop_duplicates()
-print(df_test.shape)
-# Преобразование через preprocessor
-X_test_enc = preprocessor.transform(df_test[X.columns])
-feature_names = preprocessor.get_feature_names_out()
-selected_mask = np.isin(feature_names, selected_features)
-X_test_final = X_test_enc[:, selected_mask]
-
-# Предсказание
-y_pred = np.expm1(model.predict(X_test_final))
-
-# Сборка файла для отправки
-df_submit = df_test[["ID"]].copy()
-df_submit["Predict"] = y_pred
-df_submit.to_csv("submit.csv", index=False)
-print("submit", df_submit.shape)
-print(df_submit.head(3))
+# ---- Полезные инструменты после обучения ----
+# feature importance
+fi = model.get_feature_importance(prettified=True)
+print(fi.head(20))
+# можно сохранить модель
+model.save_model('catboost_model.cbm')
